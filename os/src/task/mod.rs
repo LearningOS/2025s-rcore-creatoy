@@ -17,6 +17,7 @@ mod task;
 use crate::config::MAX_APP_NUM;
 use crate::loader::{get_num_app, init_app_cx};
 use crate::sync::UPSafeCell;
+use crate::syscall::*;
 use lazy_static::*;
 use switch::__switch;
 pub use task::{TaskControlBlock, TaskStatus};
@@ -54,7 +55,7 @@ lazy_static! {
         let mut tasks = [TaskControlBlock {
             task_cx: TaskContext::zero_init(),
             task_status: TaskStatus::UnInit,
-            syscall_times: [0; 512],
+            syscall_times: [0; 64],
         }; MAX_APP_NUM];
         for (i, task) in tasks.iter_mut().enumerate() {
             task.task_cx = TaskContext::goto_restore(init_app_cx(i));
@@ -141,14 +142,28 @@ impl TaskManager {
     pub fn inc_syscall_times(&self, syscall_id: usize) {
         let mut inner = self.inner.exclusive_access();
         let current = inner.current_task;
-        inner.tasks[current].syscall_times[syscall_id] += 1;
+        match syscall_id {
+            SYSCALL_WRITE => inner.tasks[current].syscall_times[0] += 1,
+            SYSCALL_EXIT => inner.tasks[current].syscall_times[1] += 1,
+            SYSCALL_YIELD => inner.tasks[current].syscall_times[2] += 1,
+            SYSCALL_GET_TIME => inner.tasks[current].syscall_times[3] += 1,
+            SYSCALL_TRACE => inner.tasks[current].syscall_times[4] += 1,
+            _ => panic!("Unsupported syscall_id: {}", syscall_id),
+        }
     }
 
     /// Get the `syscall_times` of current task by `syscall_id`
     pub fn get_syscall_times(&self, syscall_id: usize) -> usize {
         let inner = self.inner.exclusive_access();
         let current = inner.current_task;
-        inner.tasks[current].syscall_times[syscall_id]
+        match syscall_id {
+            SYSCALL_WRITE => inner.tasks[current].syscall_times[0],
+            SYSCALL_EXIT => inner.tasks[current].syscall_times[1],
+            SYSCALL_YIELD => inner.tasks[current].syscall_times[2],
+            SYSCALL_GET_TIME => inner.tasks[current].syscall_times[3],
+            SYSCALL_TRACE => inner.tasks[current].syscall_times[4],
+            _ => panic!("Unsupported syscall_id: {}", syscall_id),
+        }
     }
 }
 
