@@ -133,6 +133,20 @@ impl TaskManager {
         inner.tasks[cur].change_program_brk(size)
     }
 
+    /// Get the current 'Running' task's syscall times
+    pub fn get_current_syscall_times(&self, syscall_id: usize) -> isize {
+        let inner = self.inner.exclusive_access();
+        let cur = inner.current_task;
+        inner.tasks[cur].get_syscall_times(syscall_id)
+    }
+
+    /// Increase the current 'Running' task's syscall times
+    pub fn inc_current_syscall_times(&self, syscall_id: usize, times: isize) {
+        let mut inner = self.inner.exclusive_access();
+        let cur = inner.current_task;
+        inner.tasks[cur].increase_syscall_times(syscall_id, times);
+    }
+
     /// Switch current `Running` task to the task we have found,
     /// or there is no `Ready` task and we can exit with all applications completed
     fn run_next_task(&self) {
@@ -201,4 +215,14 @@ pub fn current_trap_cx() -> &'static mut TrapContext {
 /// Change the current 'Running' task's program break
 pub fn change_program_brk(size: i32) -> Option<usize> {
     TASK_MANAGER.change_current_program_brk(size)
+}
+
+/// Get the current task trace info
+pub fn get_syscall_times(syscall_id: usize) -> isize {
+    TASK_MANAGER.get_current_syscall_times(syscall_id)
+}
+
+/// Increase the current 'Running' task's syscall times
+pub fn inc_syscall_times(syscall_id: usize, times: isize) {
+    TASK_MANAGER.inc_current_syscall_times(syscall_id, times);
 }

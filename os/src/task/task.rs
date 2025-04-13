@@ -1,10 +1,32 @@
 //! Types related to task management
+#![allow(unused)]
+
+// use alloc::collections::BTreeMap;
+
+use alloc::collections::btree_map::BTreeMap;
+
 use super::TaskContext;
-use crate::config::TRAP_CONTEXT_BASE;
+use crate::config::{MAX_SYSCALL_NUM, TRAP_CONTEXT_BASE};
 use crate::mm::{
     kernel_stack_position, MapPermission, MemorySet, PhysPageNum, VirtAddr, KERNEL_SPACE,
 };
 use crate::trap::{trap_handler, TrapContext};
+
+const SYSCALL_WRITE: usize = 64;
+/// exit syscall
+const SYSCALL_EXIT: usize = 93;
+/// yield syscall
+const SYSCALL_YIELD: usize = 124;
+/// gettime syscall
+const SYSCALL_GET_TIME: usize = 169;
+/// sbrk syscall
+const SYSCALL_SBRK: usize = 214;
+/// munmap syscall
+const SYSCALL_MUNMAP: usize = 215;
+/// mmap syscall
+const SYSCALL_MMAP: usize = 222;
+/// trace syscall
+const SYSCALL_TRACE: usize = 410;
 
 /// The task control block (TCB) of a task.
 pub struct TaskControlBlock {
@@ -28,6 +50,9 @@ pub struct TaskControlBlock {
 
     /// Program break
     pub program_brk: usize,
+
+    /// Syscall times
+    pub syscall_times: BTreeMap<usize, isize>,
 }
 
 impl TaskControlBlock {
@@ -63,6 +88,7 @@ impl TaskControlBlock {
             base_size: user_sp,
             heap_bottom: user_sp,
             program_brk: user_sp,
+            syscall_times: BTreeMap::new(),
         };
         // prepare TrapContext in user space
         let trap_cx = task_control_block.get_trap_cx();
@@ -94,6 +120,28 @@ impl TaskControlBlock {
             Some(old_break)
         } else {
             None
+        }
+    }
+
+    /// Get the current 'Running' task's syscall times
+    pub fn get_syscall_times(&self, syscall_id: usize) -> isize {
+        if syscall_id < MAX_SYSCALL_NUM {
+            match self.syscall_times.get(&syscall_id) {
+                Some(times) => *times,
+                None => 0,
+            }
+        } else {
+            -1
+        }
+    }
+
+    /// Increase the syscall times
+    pub fn increase_syscall_times(&mut self, syscall_id: usize, times: isize) {
+        if syscall_id < MAX_SYSCALL_NUM {
+            self.syscall_times
+                .entry(syscall_id)
+                .and_modify(|x| *x += times)
+                .or_insert(times);
         }
     }
 }
