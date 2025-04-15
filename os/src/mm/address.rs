@@ -204,7 +204,7 @@ impl StepByOne for VirtPageNum {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 /// a simple range structure for type T
 pub struct SimpleRange<T>
 where
@@ -226,6 +226,10 @@ where
     }
     pub fn get_end(&self) -> T {
         self.r
+    }
+    #[allow(unused)]
+    pub fn intersected(&self, other: &Self) -> bool {
+        self.l < other.r && self.r > other.l
     }
 }
 impl<T> IntoIterator for SimpleRange<T>

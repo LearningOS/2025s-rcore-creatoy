@@ -15,6 +15,7 @@ mod switch;
 mod task;
 
 use crate::loader::{get_app_data, get_num_app};
+use crate::mm::{MapPermission, VirtAddr};
 use crate::sync::UPSafeCell;
 use crate::trap::TrapContext;
 use alloc::vec::Vec;
@@ -147,6 +148,63 @@ impl TaskManager {
         inner.tasks[cur].increase_syscall_times(syscall_id, times);
     }
 
+    /// Mmap a new frame area for current 'Running' task
+    pub fn insert_framed_area(&self, start: usize, len: usize, prot: usize) -> isize {
+        let start_va: VirtAddr = start.into();
+        let end_va: VirtAddr = (start + len).into();
+        if !start_va.aligned() {
+            error!(
+                "insert_framed_area: start_va is not aligned: 0x{:0x}",
+                start
+            );
+            return -1;
+        }
+        if prot & !0x7 != 0 || prot & 0x7 == 0 {
+            error!("insert_framed_area: prot is not valid: 0x{:0x}", prot);
+            return -1;
+        }
+
+        let mut inner = self.inner.exclusive_access();
+        let cur = inner.current_task;
+        if inner.tasks[cur]
+            .memory_set
+            .has_mapped_page_in_area(start_va, end_va)
+        {
+            error!(
+                "insert_framed_area: area is already mapped: {:?} to {:?}",
+                start_va.floor(),
+                end_va.ceil()
+            );
+            return -1;
+        }
+
+        let map_perm = MapPermission::from_bits((prot as u8) << 1).unwrap() | MapPermission::U;
+        inner.tasks[cur]
+            .memory_set
+            .insert_framed_area(start_va, end_va, map_perm);
+
+        0
+    }
+    /// Munmap a frame area for current 'Running' task
+    pub fn remove_framed_area(&self, start: usize, len: usize) -> isize {
+        let start_va: VirtAddr = start.into();
+        let end_va: VirtAddr = (start + len).into();
+        if !start_va.aligned() {
+            return -1;
+        }
+
+        let mut inner = self.inner.exclusive_access();
+        let cur = inner.current_task;
+        if let Ok(_) = inner.tasks[cur]
+            .memory_set
+            .remove_framed_area(start_va, end_va)
+        {
+            0
+        } else {
+            -1
+        }
+    }
+
     /// Switch current `Running` task to the task we have found,
     /// or there is no `Ready` task and we can exit with all applications completed
     fn run_next_task(&self) {
@@ -225,4 +283,21 @@ pub fn get_syscall_times(syscall_id: usize) -> isize {
 /// Increase the current 'Running' task's syscall times
 pub fn inc_syscall_times(syscall_id: usize, times: isize) {
     TASK_MANAGER.inc_current_syscall_times(syscall_id, times);
+}
+
+/// Insert a new frame area with given start virtual address, size and permission.
+pub fn insert_framed_area(start: usize, len: usize, prot: usize) -> isize {
+    debug!(
+        "insert_framed_area: start: {:#x}, len: {:#x}, prot: {:#x}",
+        start, len, prot
+    );
+
+    TASK_MANAGER.insert_framed_area(start, len, prot)
+}
+
+/// Remove a frame area with given start virtual address and size.
+pub fn remove_framed_area(start: usize, len: usize) -> isize {
+    debug!("remove_framed_area: start: {:#x}, len: {:#x}", start, len);
+
+    TASK_MANAGER.remove_framed_area(start, len)
 }

@@ -1,9 +1,7 @@
 //! Types related to task management
 #![allow(unused)]
 
-// use alloc::collections::BTreeMap;
-
-use alloc::collections::btree_map::BTreeMap;
+use alloc::collections::BTreeMap;
 
 use super::TaskContext;
 use crate::config::{MAX_SYSCALL_NUM, TRAP_CONTEXT_BASE};
@@ -11,22 +9,6 @@ use crate::mm::{
     kernel_stack_position, MapPermission, MemorySet, PhysPageNum, VirtAddr, KERNEL_SPACE,
 };
 use crate::trap::{trap_handler, TrapContext};
-
-const SYSCALL_WRITE: usize = 64;
-/// exit syscall
-const SYSCALL_EXIT: usize = 93;
-/// yield syscall
-const SYSCALL_YIELD: usize = 124;
-/// gettime syscall
-const SYSCALL_GET_TIME: usize = 169;
-/// sbrk syscall
-const SYSCALL_SBRK: usize = 214;
-/// munmap syscall
-const SYSCALL_MUNMAP: usize = 215;
-/// mmap syscall
-const SYSCALL_MMAP: usize = 222;
-/// trace syscall
-const SYSCALL_TRACE: usize = 410;
 
 /// The task control block (TCB) of a task.
 pub struct TaskControlBlock {

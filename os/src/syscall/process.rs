@@ -6,7 +6,7 @@ use crate::{
     mm::{checked_translated_byte_buffer, PTEFlags},
     task::{
         change_program_brk, current_user_token, exit_current_and_run_next, get_syscall_times,
-        suspend_current_and_run_next,
+        insert_framed_area, remove_framed_area, suspend_current_and_run_next,
     },
     timer::{get_time, TimeVal},
 };
@@ -73,7 +73,7 @@ pub fn sys_get_time(ts: *mut TimeVal, _tz: usize) -> isize {
 /// HINT: You might reimplement it with virtual memory management.
 pub fn sys_trace(trace_request: usize, id: usize, data: usize) -> isize {
     trace!("kernel: sys_trace");
-    debug!(
+    trace!(
         "sys_trace(request: {}, {}: {:0x}, data: {})",
         trace_request,
         if id < 2 { "addr" } else { "id" },
@@ -129,15 +129,13 @@ pub fn sys_trace(trace_request: usize, id: usize, data: usize) -> isize {
 }
 
 // YOUR JOB: Implement mmap.
-pub fn sys_mmap(_start: usize, _len: usize, _port: usize) -> isize {
-    trace!("kernel: sys_mmap NOT IMPLEMENTED YET!");
-    -1
+pub fn sys_mmap(start: usize, len: usize, prot: usize) -> isize {
+    insert_framed_area(start, len, prot)
 }
 
 // YOUR JOB: Implement munmap.
-pub fn sys_munmap(_start: usize, _len: usize) -> isize {
-    trace!("kernel: sys_munmap NOT IMPLEMENTED YET!");
-    -1
+pub fn sys_munmap(start: usize, len: usize) -> isize {
+    remove_framed_area(start, len)
 }
 /// change data segment size
 pub fn sys_sbrk(size: i32) -> isize {

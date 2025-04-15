@@ -63,6 +63,33 @@ impl MemorySet {
             None,
         );
     }
+    /// Remove the giving mem area.
+    pub fn remove_framed_area(
+        &mut self,
+        start_va: VirtAddr,
+        end_va: VirtAddr,
+    ) -> Result<(), isize> {
+        let vpn_range = VPNRange::new(start_va.floor(), end_va.ceil());
+        if let Some(idx) = self.areas.iter().position(|area| {
+            area.vpn_range.get_start() == vpn_range.get_start()
+                && area.vpn_range.get_end() == vpn_range.get_end()
+                && area.map_type == MapType::Framed
+        }) {
+            self.areas.remove(idx).unmap(&mut self.page_table);
+            Ok(())
+        } else {
+            // not found mapped area
+            error!("remove_framed_area: not found mapped area");
+            Err(-1)
+        }
+    }
+    /// Check whether the giving mem area has mapped pages.
+    pub fn has_mapped_page_in_area(&self, start_va: VirtAddr, end_va: VirtAddr) -> bool {
+        let vpn_range = VPNRange::new(start_va.floor(), end_va.ceil());
+        self.areas
+            .iter()
+            .any(|area| area.vpn_range.intersected(&vpn_range))
+    }
     fn push(&mut self, mut map_area: MapArea, data: Option<&[u8]>) {
         map_area.map(&mut self.page_table);
         if let Some(data) = data {
